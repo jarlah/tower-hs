@@ -1,5 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- |
+-- Module      : Network.HTTP.Tower.Middleware.Logging
+-- Description : Request/response logging middleware
+-- License     : MIT
+--
+-- Logs HTTP method, host, status code, and duration for each request.
+--
+-- @
+-- client '|>' 'withLogging' (\\msg -> Data.Text.IO.putStrLn msg)
+-- @
 module Network.HTTP.Tower.Middleware.Logging
   ( withLogging
   , withLoggingCustom
@@ -20,6 +30,8 @@ withLogging :: (Text -> IO ()) -> Middleware HTTP.Request HttpResponse
 withLogging = withLoggingCustom formatDefault
 
 -- | Logging middleware with a custom formatter.
+--
+-- The formatter receives the request, the result, and the duration in seconds.
 withLoggingCustom
   :: (HTTP.Request -> Either ServiceError HttpResponse -> Double -> Text)
   -> (Text -> IO ())

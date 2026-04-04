@@ -1,5 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- |
+-- Module      : Network.HTTP.Tower.Middleware.SetHeader
+-- Description : Add headers to every request
+-- License     : MIT
+--
+-- @
+-- client '|>' 'withBearerAuth' \"my-token\"
+-- client '|>' 'withUserAgent' \"my-app\/1.0\"
+-- client '|>' 'withHeader' \"X-Custom\" \"value\"
+-- @
 module Network.HTTP.Tower.Middleware.SetHeader
   ( withHeader
   , withHeaders
@@ -26,10 +36,10 @@ withHeaders hdrs inner = Service $ \req ->
   let req' = req { HTTP.requestHeaders = hdrs ++ HTTP.requestHeaders req }
   in runService inner req'
 
--- | Add a Bearer token authorization header.
+-- | Add a @Authorization: Bearer \<token\>@ header.
 withBearerAuth :: ByteString -> Middleware HTTP.Request HttpResponse
 withBearerAuth token = withHeader "Authorization" ("Bearer " <> token)
 
--- | Set the User-Agent header.
+-- | Set the @User-Agent@ header.
 withUserAgent :: ByteString -> Middleware HTTP.Request HttpResponse
 withUserAgent = withHeader "User-Agent"

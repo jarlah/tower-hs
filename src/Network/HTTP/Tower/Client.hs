@@ -1,3 +1,17 @@
+-- |
+-- Module      : Network.HTTP.Tower.Client
+-- Description : HTTP client with composable middleware
+-- License     : MIT
+--
+-- Create an HTTP client and compose middleware using the @('|>')@ operator:
+--
+-- @
+-- client <- 'newClient'
+-- let configured = client
+--       '|>' withRetry (constantBackoff 3 1.0)
+--       '|>' withTimeout 5000
+-- result <- 'runRequest' configured request
+-- @
 module Network.HTTP.Tower.Client
   ( Client(..)
   , HttpResponse
@@ -22,7 +36,9 @@ type HttpResponse = HTTP.Response LBS.ByteString
 -- | An HTTP client with a composable middleware stack.
 data Client = Client
   { clientService :: Service HTTP.Request HttpResponse
+    -- ^ The service with all middleware applied.
   , clientManager :: HTTP.Manager
+    -- ^ The underlying connection manager.
   }
 
 -- | Create a client with default TLS settings.
@@ -54,11 +70,11 @@ applyMiddleware mw client = client { clientService = mw (clientService client) }
 -- | Operator for fluent middleware application.
 --
 -- @
--- client <- newClient
+-- client <- 'newClient'
 -- let configured = client
---       |> withRetry (constantBackoff 3 1.0)
---       |> withTimeout 5000
---       |> withLogging putStrLn
+--       '|>' withRetry (constantBackoff 3 1.0)
+--       '|>' withTimeout 5000
+--       '|>' withLogging putStrLn
 -- @
 (|>) :: Client -> Middleware HTTP.Request HttpResponse -> Client
 (|>) client mw = applyMiddleware mw client

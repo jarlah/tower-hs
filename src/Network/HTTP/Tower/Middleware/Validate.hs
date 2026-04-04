@@ -1,5 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- |
+-- Module      : Network.HTTP.Tower.Middleware.Validate
+-- Description : Response validation middleware
+-- License     : MIT
+--
+-- Reject responses that don't meet expectations:
+--
+-- @
+-- client '|>' 'withValidateStatus' (\\c -> c >= 200 && c < 300)
+-- client '|>' 'withValidateContentType' \"application\/json\"
+-- client '|>' 'withValidateHeader' \"X-Request-ID\"
+-- @
 module Network.HTTP.Tower.Middleware.Validate
   ( withValidateStatus
   , withValidateHeader
@@ -16,12 +28,12 @@ import Network.HTTP.Tower.Client (HttpResponse)
 import Network.HTTP.Tower.Core (Service(..), Middleware)
 import Network.HTTP.Tower.Error (ServiceError(..))
 
--- | Validate the response status code. If the predicate returns False,
--- the response is converted to a CustomError.
+-- | Validate the response status code. Returns a 'CustomError' if the
+-- predicate returns 'False'.
 --
 -- @
--- -- Reject anything that's not 2xx
--- client |> withValidateStatus (\\code -> code >= 200 && code < 300)
+-- -- Only accept 2xx
+-- client '|>' 'withValidateStatus' (\\c -> c >= 200 && c < 300)
 -- @
 withValidateStatus :: (Int -> Bool) -> Middleware HTTP.Request HttpResponse
 withValidateStatus isValid inner = Service $ \req -> do
@@ -45,11 +57,10 @@ withValidateHeader headerName inner = Service $ \req -> do
         Nothing -> pure (Left (CustomError ("Missing required header: " <> pack (show headerName))))
     Left err -> pure (Left err)
 
--- | Validate the Content-Type header contains the expected value.
+-- | Validate the @Content-Type@ header contains the expected value.
 --
--- @
--- client |> withValidateContentType "application/json"
--- @
+-- Uses substring matching, so @\"application\/json\"@ matches
+-- @\"application\/json; charset=utf-8\"@.
 withValidateContentType :: ByteString -> Middleware HTTP.Request HttpResponse
 withValidateContentType expected inner = Service $ \req -> do
   result <- runService inner req

@@ -1,17 +1,35 @@
--- | Composable HTTP client middleware for Haskell, inspired by Rust's Tower.
+-- |
+-- Module      : Network.HTTP.Tower
+-- Description : Composable HTTP client middleware for Haskell
+-- License     : MIT
+--
+-- Inspired by Rust's <https://docs.rs/tower/latest/tower/ Tower> crate.
+-- Build composable middleware stacks for HTTP clients with the @('|>')@ operator.
 --
 -- @
--- client <- newClient
--- let configured = client
---       |> withRetry (constantBackoff 3 1.0)
---       |> withTimeout 5000
---       |> withLogging (putStrLn . unpack)
+-- import Network.HTTP.Tower
+-- import qualified Network.HTTP.Client as HTTP
 --
--- result <- runRequest configured request
--- case result of
---   Left err   -> putStrLn $ "Failed: " <> show err
---   Right resp -> putStrLn $ "OK: " <> show (responseStatus resp)
+-- main :: IO ()
+-- main = do
+--   client <- 'newClient'
+--   let configured = client
+--         '|>' 'withBearerAuth' \"my-token\"
+--         '|>' 'withRequestId'
+--         '|>' 'withRetry' ('constantBackoff' 3 1.0)
+--         '|>' 'withTimeout' 5000
+--         '|>' 'withValidateStatus' (\\c -> c >= 200 && c < 300)
+--         '|>' 'withTracing'
+--
+--   req <- HTTP.parseRequest \"https://api.example.com/v1/users\"
+--   result <- 'runRequest' configured req
+--   case result of
+--     Left err   -> putStrLn $ \"Failed: \" \<> show err
+--     Right resp -> putStrLn $ \"OK: \" \<> show (HTTP.responseStatus resp)
 -- @
+--
+-- All errors are returned as @'Either' 'ServiceError' response@ — no exceptions
+-- escape the middleware stack.
 module Network.HTTP.Tower
   ( -- * Core types
     Service(..)

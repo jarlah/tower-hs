@@ -1,5 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- |
+-- Module      : Network.HTTP.Tower.Middleware.RequestId
+-- Description : Generate unique request IDs
+-- License     : MIT
+--
+-- Adds a UUID v4 correlation ID to every request.
+--
+-- @
+-- client '|>' 'withRequestId'                          -- X-Request-ID header
+-- client '|>' 'withRequestIdHeader' \"X-Correlation-ID\"  -- custom header
+-- @
 module Network.HTTP.Tower.Middleware.RequestId
   ( withRequestId
   , withRequestIdHeader
@@ -14,8 +25,7 @@ import qualified Network.HTTP.Types.Header as HTTP
 import Network.HTTP.Tower.Client (HttpResponse)
 import Network.HTTP.Tower.Core (Service(..), Middleware)
 
--- | Add a unique request ID header (X-Request-ID) to every request.
--- Generates a UUID v4 for each request.
+-- | Add a unique @X-Request-ID@ header with a UUID v4 to every request.
 withRequestId :: Middleware HTTP.Request HttpResponse
 withRequestId = withRequestIdHeader "X-Request-ID"
 

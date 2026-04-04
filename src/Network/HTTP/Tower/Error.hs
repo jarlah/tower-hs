@@ -1,5 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- |
+-- Module      : Network.HTTP.Tower.Error
+-- Description : Error types for the middleware stack
+-- License     : MIT
+--
+-- All middleware returns @Either 'ServiceError' response@ — no exceptions
+-- escape the middleware stack.
 module Network.HTTP.Tower.Error
   ( ServiceError(..)
   , displayError
@@ -9,15 +16,22 @@ import Control.Exception (SomeException)
 import Data.Text (Text, pack)
 
 -- | Errors that can occur in a middleware stack.
--- All middleware returns 'Either ServiceError Response' — no exceptions escape.
+--
+-- All middleware returns @Either ServiceError Response@ — no exceptions escape.
 data ServiceError
   = HttpError SomeException
+    -- ^ An HTTP-level exception (connection refused, DNS failure, etc.)
   | TimeoutError
-  | RetryExhausted Int ServiceError  -- ^ retries attempted, last error
+    -- ^ The request exceeded the configured timeout.
+  | RetryExhausted Int ServiceError
+    -- ^ All retries failed. Contains the number of attempts and the last error.
   | CircuitBreakerOpen
+    -- ^ The circuit breaker is open — requests are being rejected.
   | CustomError Text
+    -- ^ A custom error from middleware (e.g., validation failure, too many redirects).
   deriving (Show)
 
+-- | Render a 'ServiceError' as human-readable 'Text'.
 displayError :: ServiceError -> Text
 displayError (HttpError e)          = pack $ "HTTP error: " <> show e
 displayError TimeoutError           = "Request timed out"

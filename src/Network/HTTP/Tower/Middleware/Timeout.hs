@@ -1,3 +1,14 @@
+-- |
+-- Module      : Network.HTTP.Tower.Middleware.Timeout
+-- Description : Timeout middleware
+-- License     : MIT
+--
+-- Fails with 'TimeoutError' if the inner service doesn't respond within
+-- the specified number of milliseconds.
+--
+-- @
+-- client '|>' 'withTimeout' 5000  -- 5 second timeout
+-- @
 module Network.HTTP.Tower.Middleware.Timeout
   ( withTimeout
   ) where

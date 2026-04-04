@@ -1,5 +1,19 @@
 {-# LANGUAGE NumericUnderscores #-}
 
+-- |
+-- Module      : Network.HTTP.Tower.Middleware.Hedge
+-- Description : Speculative retry via async race
+-- License     : MIT
+--
+-- If the primary request is slow, fire a second speculative request after
+-- a delay and return whichever finishes first.
+--
+-- @
+-- client '|>' 'withHedge' 200  -- hedge after 200ms
+-- @
+--
+-- __Only use for idempotent requests__ (GET, etc.) since the request may
+-- be sent twice.
 module Network.HTTP.Tower.Middleware.Hedge
   ( withHedge
   ) where
@@ -10,15 +24,9 @@ import Control.Concurrent.Async (race)
 import Network.HTTP.Tower.Core (Service(..), Middleware)
 import Network.HTTP.Tower.Error (ServiceError)
 
--- | Hedging middleware: if the first request doesn't complete within the
--- given delay (in milliseconds), fire a second speculative request and
--- return whichever finishes first.
---
--- This is useful for latency-sensitive services where occasional slow
--- requests can be mitigated by racing a duplicate.
---
--- Note: only use this for idempotent requests since the request may be
--- sent twice.
+-- | Hedging middleware: if the primary request doesn't complete within
+-- @delayMs@ milliseconds, fire a second request and return whichever
+-- finishes first.
 withHedge :: Int -> Middleware req res
 withHedge delayMs inner = Service $ \req -> do
   let primary = runService inner req

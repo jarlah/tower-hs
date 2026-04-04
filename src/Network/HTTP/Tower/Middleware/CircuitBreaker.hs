@@ -1,3 +1,25 @@
+-- |
+-- Module      : Network.HTTP.Tower.Middleware.CircuitBreaker
+-- Description : Three-state circuit breaker using STM
+-- License     : MIT
+--
+-- Prevents cascading failures by tracking consecutive errors and
+-- short-circuiting requests when a service is known to be down.
+--
+-- @
+-- breaker <- 'newCircuitBreaker'
+-- let config = 'CircuitBreakerConfig' { 'cbFailureThreshold' = 5, 'cbCooldownPeriod' = 30 }
+-- let client' = client '|>' 'withCircuitBreaker' config breaker
+-- @
+--
+-- == State machine
+--
+-- * __Closed__ — normal operation. Failures are counted. Trips to Open
+--   after reaching the threshold.
+-- * __Open__ — all requests rejected with 'CircuitBreakerOpen'. After the
+--   cooldown period, transitions to HalfOpen.
+-- * __HalfOpen__ — one probe request is allowed through. Success resets to
+--   Closed; failure trips back to Open.
 module Network.HTTP.Tower.Middleware.CircuitBreaker
   ( CircuitBreakerConfig(..)
   , CircuitBreakerState(..)
@@ -18,7 +40,7 @@ data CircuitBreakerConfig = CircuitBreakerConfig
   { cbFailureThreshold :: !Int
     -- ^ Number of consecutive failures before the breaker trips open.
   , cbCooldownPeriod   :: !NominalDiffTime
-    -- ^ How long to stay open before transitioning to half-open.
+    -- ^ How long to stay open before transitioning to half-open (in seconds).
   } deriving (Show, Eq)
 
 -- | Observable state of the circuit breaker.
@@ -28,7 +50,6 @@ data CircuitBreakerState
   | HalfOpen    -- ^ Testing — one request allowed through to probe recovery.
   deriving (Show, Eq)
 
--- | Internal mutable state, managed via STM.
 data BreakerInternals = BreakerInternals
   { biState          :: !CircuitBreakerState
   , biFailureCount   :: !Int
@@ -39,7 +60,7 @@ data BreakerInternals = BreakerInternals
 -- Create with 'newCircuitBreaker', share across requests.
 newtype CircuitBreaker = CircuitBreaker (TVar BreakerInternals)
 
--- | Create a new circuit breaker in the Closed state.
+-- | Create a new circuit breaker in the 'Closed' state.
 newCircuitBreaker :: IO CircuitBreaker
 newCircuitBreaker = CircuitBreaker <$> newTVarIO BreakerInternals
   { biState         = Closed
@@ -53,21 +74,12 @@ getCircuitBreakerState (CircuitBreaker var) = biState <$> readTVarIO var
 
 -- | Circuit breaker middleware.
 --
--- * **Closed**: requests pass through. On failure, increment the failure
---   counter. When the counter reaches the threshold, trip to Open.
---
--- * **Open**: all requests are immediately rejected with 'CircuitBreakerOpen'.
---   After the cooldown period elapses, transition to HalfOpen.
---
--- * **HalfOpen**: allow exactly one request through. If it succeeds, reset
---   to Closed. If it fails, trip back to Open.
---
--- The 'CircuitBreaker' handle is shared across all requests, so create it
+-- The 'CircuitBreaker' handle is shared across all requests — create it
 -- once and reuse it:
 --
 -- @
--- breaker <- newCircuitBreaker
--- let client' = client |> withCircuitBreaker config breaker
+-- breaker <- 'newCircuitBreaker'
+-- let client' = client '|>' 'withCircuitBreaker' config breaker
 -- @
 withCircuitBreaker :: CircuitBreakerConfig -> CircuitBreaker -> Middleware req res
 withCircuitBreaker config (CircuitBreaker var) inner = Service $ \req -> do

@@ -1,3 +1,16 @@
+-- |
+-- Module      : Network.HTTP.Tower.Middleware.TestDouble
+-- Description : Mock services and request recording for testing
+-- License     : MIT
+--
+-- @
+-- -- Replace the service entirely
+-- let testClient = client '|>' 'withMock' (\\req -> pure (Right fakeResponse))
+--
+-- -- Record requests for assertions
+-- recorder <- newIORef []
+-- let testClient = client '|>' 'withRecorder' recorder
+-- @
 module Network.HTTP.Tower.Middleware.TestDouble
   ( withMock
   , withMockMap
@@ -16,25 +29,20 @@ import Network.HTTP.Tower.Error (ServiceError(..))
 
 -- | Replace the inner service entirely with a mock function.
 -- The inner service is never called.
---
--- @
--- let mock = withMock (\\req -> pure (Right fakeResponse))
--- let client' = client |> mock
--- @
 withMock
   :: (HTTP.Request -> IO (Either ServiceError HttpResponse))
   -> Middleware HTTP.Request HttpResponse
 withMock handler _inner = Service handler
 
--- | Route requests to different mock responses based on host+path.
+-- | Route requests to different mock responses based on @host <> path@.
 -- Falls through to the inner service if no match is found.
 --
 -- @
 -- let mocks = Map.fromList
---       [ ("api.example.com/v1/users", Right usersResponse)
---       , ("api.example.com/v1/health", Right healthResponse)
+--       [ (\"api.example.com\/v1\/users\", Right usersResponse)
+--       , (\"api.example.com\/v1\/health\", Right healthResponse)
 --       ]
--- let client' = client |> withMockMap mocks
+-- let testClient = client '|>' 'withMockMap' mocks
 -- @
 withMockMap
   :: Map ByteString (Either ServiceError HttpResponse)
@@ -46,12 +54,12 @@ withMockMap routes inner = Service $ \req ->
     Nothing     -> runService inner req
 
 -- | Record all requests that pass through, then forward to the inner service.
--- Returns the recorder IORef that can be inspected after the test.
+-- The recorder stores requests in reverse order (most recent first).
 --
 -- @
 -- recorder <- newIORef []
--- let client' = client |> withRecorder recorder
--- _ <- runRequest client' someRequest
+-- let testClient = client '|>' 'withRecorder' recorder
+-- _ <- runRequest testClient someRequest
 -- recorded <- readIORef recorder
 -- length recorded \`shouldBe\` 1
 -- @

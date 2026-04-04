@@ -1,5 +1,16 @@
 {-# LANGUAGE NumericUnderscores #-}
 
+-- |
+-- Module      : Network.HTTP.Tower.Middleware.Retry
+-- Description : Retry middleware with configurable backoff
+-- License     : MIT
+--
+-- Retries failed requests with constant or exponential backoff.
+--
+-- @
+-- client '|>' 'withRetry' ('constantBackoff' 3 1.0)
+-- client '|>' 'withRetry' ('exponentialBackoff' 5 0.5 2.0)
+-- @
 module Network.HTTP.Tower.Middleware.Retry
   ( BackoffStrategy(..)
   , constantBackoff
@@ -18,20 +29,29 @@ import Network.HTTP.Tower.Error (ServiceError(..))
 data BackoffStrategy
   = ConstantBackoff
       { backoffMaxRetries :: !Int
-      , backoffDelay      :: !NominalDiffTime  -- ^ delay between retries
+        -- ^ Maximum number of retries.
+      , backoffDelay      :: !NominalDiffTime
+        -- ^ Fixed delay between retries.
       }
   | ExponentialBackoff
       { backoffMaxRetries :: !Int
-      , backoffBaseDelay  :: !NominalDiffTime  -- ^ initial delay
-      , backoffMultiplier :: !Double            -- ^ multiplier per attempt
+        -- ^ Maximum number of retries.
+      , backoffBaseDelay  :: !NominalDiffTime
+        -- ^ Initial delay before first retry.
+      , backoffMultiplier :: !Double
+        -- ^ Multiplier applied to delay after each attempt.
       }
   deriving (Show, Eq)
 
 -- | Constant backoff: same delay between every retry.
+--
+-- @'constantBackoff' 3 1.0@ — retry up to 3 times, 1 second apart.
 constantBackoff :: Int -> NominalDiffTime -> BackoffStrategy
 constantBackoff = ConstantBackoff
 
 -- | Exponential backoff: delay grows by multiplier each attempt.
+--
+-- @'exponentialBackoff' 5 0.5 2.0@ — retry up to 5 times, starting at 500ms, doubling each time.
 exponentialBackoff :: Int -> NominalDiffTime -> Double -> BackoffStrategy
 exponentialBackoff = ExponentialBackoff
 
@@ -42,6 +62,9 @@ computeDelay (ExponentialBackoff _ base mult) attempt =
   base * realToFrac (mult ^^ attempt)
 
 -- | Retry middleware: retries failed requests according to the backoff strategy.
+--
+-- On failure, waits for the computed delay, then retries. After all retries
+-- are exhausted, returns 'RetryExhausted' with the attempt count and last error.
 withRetry :: BackoffStrategy -> Middleware req res
 withRetry strategy inner = Service $ \req ->
   go req 0
