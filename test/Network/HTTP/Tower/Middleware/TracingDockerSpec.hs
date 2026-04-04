@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Network.HTTP.Tower.Middleware.TracingDockerSpec (spec) where
 
 import Control.Concurrent (threadDelay)
-import Control.Exception (bracket, try, SomeException)
+import Control.Exception (try, SomeException)
 import Data.Aeson (Value(..), (.:), decode, withObject)
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.ByteString.Lazy as LBS
@@ -14,8 +15,11 @@ import qualified Network.HTTP.Client.Internal as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types as HTTP
 import System.Environment (setEnv, unsetEnv)
-import System.Process (callCommand, readProcess)
+import System.Process (readProcess)
 import Test.Hspec
+
+import qualified TestContainers as TC
+import TestContainers.Hspec (withContainers)
 
 import OpenTelemetry.Trace.Core
   ( makeTracer
@@ -24,15 +28,28 @@ import OpenTelemetry.Trace.Core
   , shutdownTracerProvider
   )
 import OpenTelemetry.Attributes (emptyAttributes)
-import OpenTelemetry.Trace
-  ( initializeGlobalTracerProvider
-  )
+import OpenTelemetry.Trace (initializeGlobalTracerProvider)
 
 import Network.HTTP.Tower.Client (HttpResponse)
 import Network.HTTP.Tower.Core
 import Network.HTTP.Tower.Middleware.Tracing
 
--- | Check if Docker is available.
+-- | Jaeger container setup via testcontainers.
+data JaegerPorts = JaegerPorts
+  { otlpPort   :: Int
+  , jaegerPort :: Int
+  }
+
+setupJaeger :: TC.TestContainer JaegerPorts
+setupJaeger = do
+  container <- TC.run $ TC.containerRequest (TC.fromTag "jaegertracing/all-in-one:latest")
+    TC.& TC.setExpose [4318, 16686]
+    TC.& TC.setWaitingFor (TC.waitUntilTimeout 60 (TC.waitUntilMappedPortReachable 16686))
+  pure JaegerPorts
+    { otlpPort   = TC.containerPort container 4318
+    , jaegerPort = TC.containerPort container 16686
+    }
+
 dockerAvailable :: IO Bool
 dockerAvailable = do
   result <- try (readProcess "docker" ["info"] "") :: IO (Either SomeException String)
@@ -40,62 +57,31 @@ dockerAvailable = do
     Right _ -> True
     Left _  -> False
 
--- | Start Jaeger all-in-one container, run action, then stop it.
-withJaeger :: IO a -> IO a
-withJaeger action = bracket startJaeger stopJaeger (const action)
-  where
-    startJaeger = do
-      _ <- try (callCommand "docker rm -f http-tower-jaeger 2>/dev/null") :: IO (Either SomeException ())
-      callCommand $ unwords
-        [ "docker run -d --name http-tower-jaeger"
-        , "-p 4318:4318"    -- OTLP HTTP receiver
-        , "-p 16686:16686"  -- Jaeger UI / API
-        , "jaegertracing/all-in-one:latest"
-        ]
-      waitForJaeger 30
-    stopJaeger _ = do
-      _ <- try (callCommand "docker rm -f http-tower-jaeger") :: IO (Either SomeException ())
-      pure ()
-
--- | Poll Jaeger until ready.
-waitForJaeger :: Int -> IO ()
-waitForJaeger 0 = fail "Jaeger did not become ready in time"
-waitForJaeger retries = do
-  mgr <- HTTP.newManager TLS.tlsManagerSettings
-  req <- HTTP.parseRequest "http://localhost:16686/"
-  result <- try (HTTP.httpLbs req mgr) :: IO (Either SomeException (HTTP.Response LBS.ByteString))
-  case result of
-    Right _ -> pure ()
-    Left _ -> do
-      threadDelay 1_000_000
-      waitForJaeger (retries - 1)
-
--- | Query Jaeger API for traces from a given service.
-queryJaegerTraces :: HTTP.Manager -> String -> IO (Maybe Value)
-queryJaegerTraces mgr service = do
+queryJaegerTraces :: HTTP.Manager -> Int -> String -> IO (Maybe Value)
+queryJaegerTraces mgr port service = do
   req <- HTTP.parseRequest $
-    "http://localhost:16686/api/traces?service=" <> service <> "&limit=10"
+    "http://localhost:" <> show port <> "/api/traces?service=" <> service <> "&limit=10"
   resp <- HTTP.httpLbs req mgr
   pure (decode (HTTP.responseBody resp))
 
 spec :: Spec
-spec = describe "Tracing Docker integration (Jaeger)" $ beforeAll dockerAvailable $ do
+spec = describe "Tracing Docker integration (Jaeger via testcontainers)" $ beforeAll dockerAvailable $ do
 
   it "exports spans to Jaeger via OTLP" $ \isAvailable -> do
     if not isAvailable
       then pendingWith "Docker not available, skipping Jaeger integration test"
-      else withJaeger $ do
+      else withContainers setupJaeger $ \JaegerPorts{otlpPort, jaegerPort} -> do
         -- Configure OTel SDK via environment variables
-        setEnv "OTEL_EXPORTER_OTLP_ENDPOINT" "http://localhost:4318"
+        setEnv "OTEL_EXPORTER_OTLP_ENDPOINT" ("http://localhost:" <> show otlpPort)
         setEnv "OTEL_EXPORTER_OTLP_PROTOCOL" "http/protobuf"
-        setEnv "OTEL_SERVICE_NAME" "http-tower-hs-docker-test"
+        setEnv "OTEL_SERVICE_NAME" "http-tower-hs-tc-test"
 
-        -- Initialize global tracer provider (reads env vars)
+        -- Initialize TracerProvider from env
         tp <- initializeGlobalTracerProvider
 
         let tracer = makeTracer tp
               (InstrumentationLibrary
-                { libraryName = "http-tower-hs-docker-test"
+                { libraryName = "http-tower-hs-tc-test"
                 , libraryVersion = "0.1.0.0"
                 , librarySchemaUrl = ""
                 , libraryAttributes = emptyAttributes
@@ -105,7 +91,7 @@ spec = describe "Tracing Docker integration (Jaeger)" $ beforeAll dockerAvailabl
         -- Run a request through the tracing middleware
         let svc = Service $ \_ -> pure (Right fakeResponse)
             traced = withTracingTracer tracer svc
-        req <- HTTP.parseRequest "http://example.com/docker-test"
+        req <- HTTP.parseRequest "http://example.com/testcontainers-test"
         _ <- runService traced req
 
         -- Shut down to flush all spans
@@ -121,7 +107,7 @@ spec = describe "Tracing Docker integration (Jaeger)" $ beforeAll dockerAvailabl
 
         -- Query Jaeger for our traces
         mgr <- HTTP.newManager TLS.tlsManagerSettings
-        result <- queryJaegerTraces mgr "http-tower-hs-docker-test"
+        result <- queryJaegerTraces mgr jaegerPort "http-tower-hs-tc-test"
         case result of
           Nothing -> expectationFailure "Failed to parse Jaeger API response"
           Just val -> do

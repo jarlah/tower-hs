@@ -67,5 +67,6 @@ tests:
       - vector
       - hs-opentelemetry-exporter-otlp
       - http-client-tls
+      - testcontainers
     build-tools:
       - hspec-discover
