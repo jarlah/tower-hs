@@ -47,6 +47,9 @@ module Network.HTTP.Tower
   , newCircuitBreaker
   , withCircuitBreaker
   , getCircuitBreakerState
+    -- ** Tracing (OpenTelemetry)
+  , withTracing
+  , withTracingTracer
   ) where
 
 import Network.HTTP.Tower.Core
@@ -56,3 +59,4 @@ import Network.HTTP.Tower.Middleware.Retry
 import Network.HTTP.Tower.Middleware.Timeout
 import Network.HTTP.Tower.Middleware.Logging
 import Network.HTTP.Tower.Middleware.CircuitBreaker
+import Network.HTTP.Tower.Middleware.Tracing

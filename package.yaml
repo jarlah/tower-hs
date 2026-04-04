@@ -25,6 +25,7 @@ library:
     - Network.HTTP.Tower.Middleware.Timeout
     - Network.HTTP.Tower.Middleware.Logging
     - Network.HTTP.Tower.Middleware.CircuitBreaker
+    - Network.HTTP.Tower.Middleware.Tracing
   dependencies:
     - http-client
     - http-client-tls
@@ -34,6 +35,8 @@ library:
     - time
     - stm
     - safe-exceptions
+    - hs-opentelemetry-api
+    - unordered-containers
 
 tests:
   http-tower-hs-test:
@@ -54,5 +57,6 @@ tests:
       - time
       - bytestring
       - stm
+      - hs-opentelemetry-api
     build-tools:
       - hspec-discover

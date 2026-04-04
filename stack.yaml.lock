@@ -3,7 +3,28 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/topics/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: hs-opentelemetry-api-0.3.1.0@sha256:54ab25b0764464733be287ced1b6aab70c12d99c7ec933b7415a59914d531dc5,4199
+    pantry-tree:
+      sha256: a4ec6af0393c57f6c45848ea949cc4a185051bac037df6fd6258df547965c4ba
+      size: 4709
+  original:
+    hackage: hs-opentelemetry-api-0.3.1.0
+- completed:
+    hackage: thread-utils-context-0.3.0.4@sha256:e763da1c6cab3b6d378fb670ca74aa9bf03c9b61b6fcf7628c56363fb0e3e71e,1671
+    pantry-tree:
+      sha256: 57d909a991b5e0b4c7a28121cb52ee9c2db6c09e0419b89af6c82fae52be88d4
+      size: 397
+  original:
+    hackage: thread-utils-context-0.3.0.4
+- completed:
+    hackage: thread-utils-finalizers-0.1.1.0@sha256:24944b71d9f1d01695a5908b4a3b44838fab870883114a323336d537995e0a5b,1381
+    pantry-tree:
+      sha256: 8c2c2e2e22c20bf3696ee6f30b50b3a9eeae187a22beb536441eefb0a3f9c549
+      size: 400
+  original:
+    hackage: thread-utils-finalizers-0.1.1.0
 snapshots:
 - completed:
     sha256: d133abe75e408a407cce3f032c96ac1bbadf474a93b5156ebf4135b53382d56b
