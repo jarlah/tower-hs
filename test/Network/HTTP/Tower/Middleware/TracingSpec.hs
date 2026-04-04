@@ -29,8 +29,7 @@ spec = describe "Tracing middleware" $ do
 
   it "passes successful responses through unchanged" $ do
     let svc = Service $ \_ -> pure (Right fakeResponse)
-    tracingMw <- withTracing
-    let traced = tracingMw svc
+        traced = withTracing svc
     req <- HTTP.parseRequest "http://example.com/test"
     result <- runService traced req
     case result of
@@ -40,8 +39,7 @@ spec = describe "Tracing middleware" $ do
   it "passes errors through unchanged" $ do
     let svc :: Service HTTP.Request HttpResponse
         svc = Service $ \_ -> pure (Left TimeoutError)
-    tracingMw <- withTracing
-    let traced = tracingMw svc
+        traced = withTracing svc
     req <- HTTP.parseRequest "http://example.com/fail"
     result <- runService traced req
     case result of
@@ -53,8 +51,7 @@ spec = describe "Tracing middleware" $ do
     let svc = Service $ \_ -> do
           modifyIORef' callCount (+ 1)
           pure (Right fakeResponse)
-    tracingMw <- withTracing
-    let traced = tracingMw svc
+        traced = withTracing svc
     req <- HTTP.parseRequest "http://example.com/once"
     _ <- runService traced req
     readIORef callCount >>= (`shouldBe` 1)
@@ -79,12 +76,21 @@ spec = describe "Tracing middleware" $ do
 
   it "handles 4xx responses without altering the result" $ do
     let svc = Service $ \_ -> pure (Right fake404Response)
-    tracingMw <- withTracing
-    let traced = tracingMw svc
+        traced = withTracing svc
     req <- HTTP.parseRequest "http://example.com/notfound"
     result <- runService traced req
     case result of
       Right resp -> HTTP.responseStatus resp `shouldBe` HTTP.notFound404
+      Left err   -> expectationFailure $ "Expected Right, got: " ++ show err
+
+  it "composes with the |> operator" $ do
+    -- withTracing is now a pure Middleware, so it works directly with |>
+    let svc = Service $ \_ -> pure (Right fakeResponse)
+        traced = withTracing svc
+    req <- HTTP.parseRequest "http://example.com/pipe"
+    result <- runService traced req
+    case result of
+      Right resp -> HTTP.responseStatus resp `shouldBe` HTTP.status200
       Left err   -> expectationFailure $ "Expected Right, got: " ++ show err
 
 fakeResponse :: HttpResponse

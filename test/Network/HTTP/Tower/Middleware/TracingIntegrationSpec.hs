@@ -33,8 +33,6 @@ import Network.HTTP.Tower.Core
 import Network.HTTP.Tower.Error
 import Network.HTTP.Tower.Middleware.Tracing
 
--- | Set up an in-memory TracerProvider for testing.
--- Returns a Tracer and an IORef that collects completed spans.
 withTestTracer :: (Tracer -> IORef [ImmutableSpan] -> IO a) -> IO a
 withTestTracer action = do
   (processor, spanRef) <- inMemoryListExporter
@@ -60,23 +58,22 @@ spec = describe "Tracing integration (in-memory exporter)" $ do
         traced = withTracingTracer tracer svc
     req <- HTTP.parseRequest "http://example.com/test"
     _ <- runService traced req
-    -- Give the processor a moment to flush
     threadDelay 100_000
     spans <- readIORef spanRef
     length spans `shouldSatisfy` (>= 1)
 
-  it "sets span name to HTTP method + host" $ withTestTracer $ \tracer spanRef -> do
+  it "sets span name to HTTP method only" $ withTestTracer $ \tracer spanRef -> do
     let svc = Service $ \_ -> pure (Right fakeResponse)
         traced = withTracingTracer tracer svc
     req <- HTTP.parseRequest "http://api.example.com/v1/users"
     _ <- runService traced req
     threadDelay 100_000
     spans <- readIORef spanRef
-    let spanNames = map spanName spans
-    any (isInfixOf "api.example.com") spanNames `shouldBe` True
-    any (isInfixOf "GET") spanNames `shouldBe` True
+    let names = map spanName spans
+    -- Stable convention: span name is just the method
+    any (== "GET") names `shouldBe` True
 
-  it "records http.method attribute" $ withTestTracer $ \tracer spanRef -> do
+  it "records http.request.method attribute" $ withTestTracer $ \tracer spanRef -> do
     let svc = Service $ \_ -> pure (Right fakeResponse)
         traced = withTracingTracer tracer svc
     req <- HTTP.parseRequest "http://example.com/data"
@@ -85,9 +82,21 @@ spec = describe "Tracing integration (in-memory exporter)" $ do
     spans <- readIORef spanRef
     length spans `shouldSatisfy` (>= 1)
     let attrs = spanAttributes (head spans)
-    lookupAttribute attrs "http.method" `shouldSatisfy` (/= Nothing)
+    lookupAttribute attrs "http.request.method" `shouldSatisfy` (/= Nothing)
 
-  it "records http.status_code on success" $ withTestTracer $ \tracer spanRef -> do
+  it "records server.address and url.full" $ withTestTracer $ \tracer spanRef -> do
+    let svc = Service $ \_ -> pure (Right fakeResponse)
+        traced = withTracingTracer tracer svc
+    req <- HTTP.parseRequest "http://example.com/some/path"
+    _ <- runService traced req
+    threadDelay 100_000
+    spans <- readIORef spanRef
+    length spans `shouldSatisfy` (>= 1)
+    let attrs = spanAttributes (head spans)
+    lookupAttribute attrs "server.address" `shouldSatisfy` (/= Nothing)
+    lookupAttribute attrs "url.full" `shouldSatisfy` (/= Nothing)
+
+  it "records http.response.status_code on success" $ withTestTracer $ \tracer spanRef -> do
     let svc = Service $ \_ -> pure (Right fakeResponse)
         traced = withTracingTracer tracer svc
     req <- HTTP.parseRequest "http://example.com/ok"
@@ -96,9 +105,9 @@ spec = describe "Tracing integration (in-memory exporter)" $ do
     spans <- readIORef spanRef
     length spans `shouldSatisfy` (>= 1)
     let attrs = spanAttributes (head spans)
-    lookupAttribute attrs "http.status_code" `shouldSatisfy` (/= Nothing)
+    lookupAttribute attrs "http.response.status_code" `shouldSatisfy` (/= Nothing)
 
-  it "records error status on service failure" $ withTestTracer $ \tracer spanRef -> do
+  it "records error.type on service failure" $ withTestTracer $ \tracer spanRef -> do
     let svc :: Service HTTP.Request HttpResponse
         svc = Service $ \_ -> pure (Left TimeoutError)
         traced = withTracingTracer tracer svc
@@ -107,8 +116,10 @@ spec = describe "Tracing integration (in-memory exporter)" $ do
     threadDelay 100_000
     spans <- readIORef spanRef
     length spans `shouldSatisfy` (>= 1)
+    let attrs = spanAttributes (head spans)
+    lookupAttribute attrs "error.type" `shouldSatisfy` (/= Nothing)
 
-  it "records error status on HTTP 5xx" $ withTestTracer $ \tracer spanRef -> do
+  it "records error.type on HTTP 5xx" $ withTestTracer $ \tracer spanRef -> do
     let svc = Service $ \_ -> pure (Right fake500Response)
         traced = withTracingTracer tracer svc
     req <- HTTP.parseRequest "http://example.com/error"
@@ -116,6 +127,8 @@ spec = describe "Tracing integration (in-memory exporter)" $ do
     threadDelay 100_000
     spans <- readIORef spanRef
     length spans `shouldSatisfy` (>= 1)
+    let attrs = spanAttributes (head spans)
+    lookupAttribute attrs "error.type" `shouldSatisfy` (/= Nothing)
 
 fakeResponse :: HttpResponse
 fakeResponse = HTTP.Response

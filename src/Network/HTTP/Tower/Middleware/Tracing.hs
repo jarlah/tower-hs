@@ -32,48 +32,70 @@ import Network.HTTP.Tower.Core (Service(..), Middleware)
 import Network.HTTP.Tower.Error (ServiceError, displayError)
 
 -- | Tracing middleware using the global TracerProvider.
--- Creates a span for each HTTP request with standard HTTP semantic attributes.
+-- Reads the global provider on each request (single IORef read, trivial cost).
 -- If no TracerProvider is configured, this is a no-op (zero overhead).
-withTracing :: IO (Middleware HTTP.Request HttpResponse)
-withTracing = do
+--
+-- @
+-- let client' = client |> withTracing
+-- @
+withTracing :: Middleware HTTP.Request HttpResponse
+withTracing inner = Service $ \req -> do
   tp <- getGlobalTracerProvider
-  let tracer = makeTracer tp
-        (InstrumentationLibrary
-          { libraryName = "http-tower-hs"
-          , libraryVersion = "0.1.0.0"
-          , librarySchemaUrl = ""
-          , libraryAttributes = emptyAttributes
-          })
-        (TracerOptions Nothing)
-  pure (withTracingTracer tracer)
+  let tracer = makeTracer tp instrumentationLibrary (TracerOptions Nothing)
+  runService (withTracingTracer tracer inner) req
 
 -- | Tracing middleware using a specific Tracer.
--- Wraps each request in an OpenTelemetry span with:
+-- Wraps each request in an OpenTelemetry span following
+-- [stable HTTP semantic conventions](https://opentelemetry.io/docs/specs/semconv/http/http-spans/).
 --
--- * Span name: @HTTP {method} {host}@
+-- * Span name: @{method}@ (e.g., @GET@)
 -- * Span kind: Client
--- * Attributes: @http.method@, @http.host@, @http.path@, @http.scheme@, @http.status_code@
--- * Error status on failure or HTTP 4xx/5xx
+-- * Attributes: @http.request.method@, @server.address@, @server.port@,
+--   @url.full@, @http.response.status_code@, @error.type@
 withTracingTracer :: Tracer -> Middleware HTTP.Request HttpResponse
 withTracingTracer tracer inner = Service $ \req -> do
-  let spanName = decodeUtf8 (HTTP.method req) <> " " <> decodeUtf8 (HTTP.host req)
+  let spanName = decodeUtf8 (HTTP.method req)
       spanArgs = defaultSpanArguments { kind = Client }
   inSpan' tracer spanName spanArgs $ \s -> do
-    addAttribute s "http.method" (decodeUtf8 (HTTP.method req))
-    addAttribute s "http.host" (decodeUtf8 (HTTP.host req))
-    addAttribute s "http.path" (decodeUtf8 (HTTP.path req))
-    addAttribute s "http.scheme" (if HTTP.secure req then "https" else "http" :: Text)
-    addAttribute s "net.peer.port" (pack (show (HTTP.port req)))
+    -- Required attributes
+    addAttribute s "http.request.method" (decodeUtf8 (HTTP.method req))
+    addAttribute s "server.address" (decodeUtf8 (HTTP.host req))
+    addAttribute s "server.port" (HTTP.port req)
+    addAttribute s "url.full" (buildUrl req)
 
     result <- runService inner req
 
     case result of
       Right resp -> do
         let code = HTTP.statusCode (HTTP.responseStatus resp)
-        addAttribute s "http.status_code" code
-        when (code >= 400) $
+        addAttribute s "http.response.status_code" code
+        when (code >= 400) $ do
+          addAttribute s "error.type" (pack (show code))
           setStatus s (Error "HTTP error status")
         pure (Right resp)
       Left err -> do
+        addAttribute s "error.type" (displayError err)
         setStatus s (Error (displayError err))
         pure (Left err)
+
+instrumentationLibrary :: InstrumentationLibrary
+instrumentationLibrary = InstrumentationLibrary
+  { libraryName = "http-tower-hs"
+  , libraryVersion = "0.1.0.0"
+  , librarySchemaUrl = ""
+  , libraryAttributes = emptyAttributes
+  }
+
+-- | Build a full URL from an http-client Request.
+buildUrl :: HTTP.Request -> Text
+buildUrl req =
+  let scheme = if HTTP.secure req then "https" else "http" :: Text
+      host = decodeUtf8 (HTTP.host req)
+      port = HTTP.port req
+      path = decodeUtf8 (HTTP.path req)
+      query = decodeUtf8 (HTTP.queryString req)
+      showPort = case (HTTP.secure req, port) of
+        (True, 443)  -> ""
+        (False, 80)  -> ""
+        _            -> ":" <> pack (show port)
+  in scheme <> "://" <> host <> showPort <> path <> query
