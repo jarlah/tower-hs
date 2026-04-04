@@ -45,7 +45,7 @@ newClientWith settings = do
 
 -- | Execute a request through the client's middleware stack.
 runRequest :: Client -> HTTP.Request -> IO (Either ServiceError HttpResponse)
-runRequest client req = runService (clientService client) req
+runRequest client = runService (clientService client)
 
 -- | Apply a middleware to a client, wrapping its existing service.
 applyMiddleware :: Middleware HTTP.Request HttpResponse -> Client -> Client

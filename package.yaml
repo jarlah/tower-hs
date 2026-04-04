@@ -26,6 +26,13 @@ library:
     - Network.HTTP.Tower.Middleware.Logging
     - Network.HTTP.Tower.Middleware.CircuitBreaker
     - Network.HTTP.Tower.Middleware.Tracing
+    - Network.HTTP.Tower.Middleware.SetHeader
+    - Network.HTTP.Tower.Middleware.RequestId
+    - Network.HTTP.Tower.Middleware.FollowRedirect
+    - Network.HTTP.Tower.Middleware.Filter
+    - Network.HTTP.Tower.Middleware.Hedge
+    - Network.HTTP.Tower.Middleware.Validate
+    - Network.HTTP.Tower.Middleware.TestDouble
   dependencies:
     - http-client
     - http-client-tls
@@ -34,9 +41,12 @@ library:
     - bytestring
     - time
     - stm
+    - async
+    - uuid
     - safe-exceptions
     - hs-opentelemetry-api
     - unordered-containers
+    - containers
 
 tests:
   http-tower-hs-test:
@@ -57,6 +67,9 @@ tests:
       - time
       - bytestring
       - stm
+      - async
+      - uuid
+      - containers
       - hs-opentelemetry-api
       - hs-opentelemetry-sdk
       - hs-opentelemetry-exporter-in-memory

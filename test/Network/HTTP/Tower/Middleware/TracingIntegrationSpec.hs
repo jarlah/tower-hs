@@ -71,7 +71,7 @@ spec = describe "Tracing integration (in-memory exporter)" $ do
     spans <- readIORef spanRef
     let names = map spanName spans
     -- Stable convention: span name is just the method
-    any (== "GET") names `shouldBe` True
+    elem "GET" names `shouldBe` True
 
   it "records http.request.method attribute" $ withTestTracer $ \tracer spanRef -> do
     let svc = Service $ \_ -> pure (Right fakeResponse)

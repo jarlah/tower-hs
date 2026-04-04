@@ -50,6 +50,30 @@ module Network.HTTP.Tower
     -- ** Tracing (OpenTelemetry)
   , withTracing
   , withTracingTracer
+    -- ** Set Header
+  , withHeader
+  , withHeaders
+  , withBearerAuth
+  , withUserAgent
+    -- ** Request ID
+  , withRequestId
+  , withRequestIdHeader
+    -- ** Follow Redirects
+  , withFollowRedirects
+    -- ** Filter
+  , withFilter
+  , withNoRetryOn
+
+    -- ** Hedge
+  , withHedge
+    -- ** Response Validation
+  , withValidateStatus
+  , withValidateHeader
+  , withValidateContentType
+    -- ** Test Doubles
+  , withMock
+  , withMockMap
+  , withRecorder
   ) where
 
 import Network.HTTP.Tower.Core
@@ -60,3 +84,10 @@ import Network.HTTP.Tower.Middleware.Timeout
 import Network.HTTP.Tower.Middleware.Logging
 import Network.HTTP.Tower.Middleware.CircuitBreaker
 import Network.HTTP.Tower.Middleware.Tracing
+import Network.HTTP.Tower.Middleware.SetHeader
+import Network.HTTP.Tower.Middleware.RequestId
+import Network.HTTP.Tower.Middleware.FollowRedirect
+import Network.HTTP.Tower.Middleware.Filter
+import Network.HTTP.Tower.Middleware.Hedge
+import Network.HTTP.Tower.Middleware.Validate
+import Network.HTTP.Tower.Middleware.TestDouble

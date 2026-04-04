@@ -54,7 +54,7 @@ withRetry strategy inner = Service $ \req ->
         Right resp -> pure (Right resp)
         Left err
           | attempt >= maxRetries ->
-              pure (Left (RetryExhausted (attempt) err))
+              pure (Left (RetryExhausted attempt err))
           | otherwise -> do
               let delaySeconds = computeDelay strategy attempt
                   delayMicros = round (delaySeconds * 1_000_000) :: Int

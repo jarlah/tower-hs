@@ -17,7 +17,7 @@ import Network.HTTP.Tower.Error (ServiceError, displayError)
 -- | Logging middleware using a simple @Text -> IO ()@ logger.
 -- Logs method, URL, status code, and duration for each request.
 withLogging :: (Text -> IO ()) -> Middleware HTTP.Request HttpResponse
-withLogging logger = withLoggingCustom formatDefault logger
+withLogging = withLoggingCustom formatDefault
 
 -- | Logging middleware with a custom formatter.
 withLoggingCustom
