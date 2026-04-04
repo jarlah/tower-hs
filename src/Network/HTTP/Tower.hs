@@ -40,6 +40,13 @@ module Network.HTTP.Tower
     -- ** Logging
   , withLogging
   , withLoggingCustom
+    -- ** Circuit Breaker
+  , CircuitBreakerConfig(..)
+  , CircuitBreakerState(..)
+  , CircuitBreaker
+  , newCircuitBreaker
+  , withCircuitBreaker
+  , getCircuitBreakerState
   ) where
 
 import Network.HTTP.Tower.Core
@@ -48,3 +55,4 @@ import Network.HTTP.Tower.Error
 import Network.HTTP.Tower.Middleware.Retry
 import Network.HTTP.Tower.Middleware.Timeout
 import Network.HTTP.Tower.Middleware.Logging
+import Network.HTTP.Tower.Middleware.CircuitBreaker

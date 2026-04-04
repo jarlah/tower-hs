@@ -24,6 +24,7 @@ library:
     - Network.HTTP.Tower.Middleware.Retry
     - Network.HTTP.Tower.Middleware.Timeout
     - Network.HTTP.Tower.Middleware.Logging
+    - Network.HTTP.Tower.Middleware.CircuitBreaker
   dependencies:
     - http-client
     - http-client-tls
@@ -31,6 +32,7 @@ library:
     - text
     - bytestring
     - time
+    - stm
     - safe-exceptions
 
 tests:
@@ -51,5 +53,6 @@ tests:
       - text
       - time
       - bytestring
+      - stm
     build-tools:
       - hspec-discover
