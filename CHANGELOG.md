@@ -4,6 +4,9 @@
 
 Initial release.
 
+### Client
+- `newClientWithTLS` — custom CA certificates and mTLS (client certificate authentication)
+
 ### Middleware
 - **Retry** — constant and exponential backoff
 - **Timeout** — millisecond-level request timeouts
