@@ -10,6 +10,42 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        ghc: ['9.6.6', '9.8.4', '9.10.1']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: haskell-actions/setup@v2
+        id: setup
+        with:
+          ghc-version: ${{ matrix.ghc }}
+          cabal-version: 'latest'
+
+      - name: Configure
+        run: cabal configure --enable-tests --project-file=cabal.project
+
+      - name: Cache Cabal dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('http-tower-hs.cabal', 'cabal.project') }}
+          restore-keys: cabal-${{ runner.os }}-${{ matrix.ghc }}-
+
+      - name: Build dependencies
+        run: cabal build --only-dependencies --project-file=cabal.project
+
+      - name: Build
+        run: cabal build --project-file=cabal.project
+
+      - name: Test
+        run: cabal test --project-file=cabal.project --test-show-details=direct
+
+  stack-build:
+    runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 

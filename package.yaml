@@ -15,7 +15,7 @@ github: jarlah/http-tower-hs
 extra-source-files:
   - README.md
   - CHANGELOG.md
-tested-with: GHC == 9.8.4
+tested-with: GHC == 9.6.6, GHC == 9.8.4, GHC == 9.10.1
 
 dependencies:
   - base >= 4.14 && < 5

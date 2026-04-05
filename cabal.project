@@ -1,0 +1,5 @@
+packages: .
+
+-- Allow hs-opentelemetry-exporter-in-memory to use newer dependencies
+allow-newer:
+  hs-opentelemetry-exporter-in-memory:base
