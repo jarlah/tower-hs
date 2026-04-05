@@ -41,6 +41,7 @@ module Network.HTTP.Tower
   , HttpResponse
   , newClient
   , newClientWith
+  , newClientWithTLS
   , runRequest
   , applyMiddleware
   , (|>)

@@ -57,6 +57,25 @@ let configured = client
       |> withTimeout 3000
 ```
 
+### TLS / mTLS
+
+`newClient` uses HTTPS by default. For custom CA certificates or client certificate authentication (mTLS):
+
+```haskell
+-- Custom CA (e.g., internal PKI)
+client <- newClientWithTLS (Just "certs/ca.pem") Nothing
+
+-- mTLS (client certificate authentication)
+client <- newClientWithTLS
+  (Just "certs/ca.pem")
+  (Just ("certs/client.pem", "certs/client-key.pem"))
+
+-- System CA store, no client cert (same as newClient)
+client <- newClientWithTLS Nothing Nothing
+```
+
+For full control, use `newClientWith` with custom `ManagerSettings`.
+
 ## Middleware
 
 ### Retry
