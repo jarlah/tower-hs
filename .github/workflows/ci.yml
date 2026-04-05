@@ -27,7 +27,7 @@ jobs:
 
       - name: Generate cabal file
         run: |
-          curl -sSL https://github.com/sol/hpack/releases/download/0.38.1/hpack_linux_amd64.gz | gunzip > /usr/local/bin/hpack
+          curl -sSL https://github.com/sol/hpack/releases/download/0.38.1/hpack_linux.gz | gunzip > /usr/local/bin/hpack
           chmod +x /usr/local/bin/hpack
           hpack
 
