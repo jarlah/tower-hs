@@ -239,7 +239,7 @@ data ServiceError
 
 ```bash
 stack build
-stack test    # 69 tests
+stack test
 hlint src/ test/
 ```
 
