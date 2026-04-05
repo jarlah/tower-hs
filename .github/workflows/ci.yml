@@ -9,31 +9,29 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    container: haskell:9.8.4
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: haskell-actions/setup@v2
-        with:
-          ghc-version: '9.8.4'
-          enable-stack: true
-          stack-version: 'latest'
+      - name: Install Stack
+        run: |
+          curl -sSL https://get.haskellstack.org/ | sh
 
       - name: Cache Stack dependencies
         uses: actions/cache@v4
         with:
           path: |
-            ~/.stack
+            /root/.stack
             .stack-work
-          key: stack-${{ runner.os }}-${{ hashFiles('stack.yaml', 'package.yaml') }}
-          restore-keys: |
-            stack-${{ runner.os }}-
+          key: stack-${{ hashFiles('stack.yaml', 'package.yaml') }}
+          restore-keys: stack-
 
       - name: Build
-        run: stack build --no-docker
+        run: stack build --system-ghc --no-docker
 
       - name: Test
-        run: stack test --no-docker
+        run: stack test --system-ghc --no-docker
 
   hlint:
     runs-on: ubuntu-latest
