@@ -1,5 +1,5 @@
 name: http-tower-hs
-version: 0.1.0.0
+version: 0.2.0.0
 synopsis: Composable HTTP client middleware for Haskell, built on tower-hs
 description: |
   http-tower-hs provides HTTP-specific middleware for composable HTTP clients,
