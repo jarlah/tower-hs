@@ -1,0 +1,73 @@
+name: servant-tower-hs
+version: 0.1.0.0
+synopsis: Use tower-hs middleware with servant clients
+description: |
+  servant-tower-hs provides an adapter to use tower-hs middleware
+  (retry, timeout, circuit breaker, etc.) with servant-client's
+  ClientMiddleware type, plus servant-specific middleware for headers,
+  request IDs, validation, tracing, and logging.
+license: MIT
+license-file: LICENSE
+author: Jarl André Hübenthal
+maintainer: jarlah@protonmail.com
+copyright: 2026 Jarl André Hübenthal
+category: Network, Web
+github: jarlah/tower-hs
+tested-with: GHC == 9.6.6, GHC == 9.8.4, GHC == 9.10.1
+extra-doc-files:
+  - README.md
+  - CHANGELOG.md
+
+dependencies:
+  - base >= 4.14 && < 5
+  - tower-hs >= 0.1.0.0 && < 0.2
+
+library:
+  source-dirs: src
+  exposed-modules:
+    - Servant.Tower.Adapter
+    - Servant.Tower.Middleware.SetHeader
+    - Servant.Tower.Middleware.RequestId
+    - Servant.Tower.Middleware.Validate
+    - Servant.Tower.Middleware.Tracing
+    - Servant.Tower.Middleware.Logging
+  dependencies:
+    - bytestring >= 0.11 && < 0.13
+    - containers >= 0.6 && < 0.8
+    - hs-opentelemetry-api >= 0.3 && < 0.4
+    - http-types >= 0.12 && < 0.13
+    - mtl >= 2.2 && < 2.4
+    - servant-client >= 0.20 && < 0.21
+    - servant-client-core >= 0.20 && < 0.21
+    - text >= 2.0 && < 2.2
+    - uuid >= 1.3 && < 1.4
+
+tests:
+  servant-tower-hs-test:
+    main: Spec.hs
+    source-dirs: test
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - servant-tower-hs
+      - tower-hs
+      - hspec >= 2.11 && < 2.12
+      - hspec-discover >= 2.11 && < 2.12
+      - bytestring >= 0.11 && < 0.13
+      - hs-opentelemetry-api >= 0.3 && < 0.4
+      - hs-opentelemetry-sdk >= 0.1 && < 0.2
+      - hs-opentelemetry-exporter-in-memory >= 0.0.1 && < 0.1
+      - http-types >= 0.12 && < 0.13
+      - unagi-chan >= 0.4 && < 0.5
+      - servant >= 0.20 && < 0.21
+      - servant-server >= 0.20 && < 0.21
+      - servant-client >= 0.20 && < 0.21
+      - servant-client-core >= 0.20 && < 0.21
+      - http-client >= 0.7 && < 0.8
+      - warp >= 3.3 && < 3.5
+      - stm >= 2.5 && < 2.6
+      - text >= 2.0 && < 2.2
+    build-tools:
+      - hspec-discover

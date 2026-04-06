@@ -1,4 +1,10 @@
-packages: .
+packages:
+  tower-hs
+  http-tower-hs
+  servant-tower-hs
+  examples/http-client
+  examples/servant-client
+  examples/generic-redis
 
 -- Allow hs-opentelemetry-exporter-in-memory to use newer dependencies
 allow-newer:

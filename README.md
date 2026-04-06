@@ -1,12 +1,22 @@
-# http-tower-hs
+# tower-hs
 
-[![CI](https://github.com/jarlah/http-tower-hs/actions/workflows/ci.yml/badge.svg)](https://github.com/jarlah/http-tower-hs/actions/workflows/ci.yml)
+[![CI](https://github.com/jarlah/tower-hs/actions/workflows/ci.yml/badge.svg)](https://github.com/jarlah/tower-hs/actions/workflows/ci.yml)
 
-Composable HTTP client middleware for Haskell, inspired by Rust's [Tower](https://docs.rs/tower/latest/tower/).
+Composable service middleware for Haskell, inspired by Rust's [Tower](https://docs.rs/tower/latest/tower/).
 
-The Haskell ecosystem has solid HTTP clients (`http-client`, `http-client-tls`) but no middleware composition story. Every project ends up hand-rolling retry logic, timeout handling, and logging around raw HTTP calls. `http-tower-hs` fixes this with a simple `Service`/`Middleware` abstraction.
+## Packages
+
+| Package | Description |
+|---------|-------------|
+| **[tower-hs](tower-hs/)** | Generic `Service`/`Middleware` abstractions with protocol-agnostic middleware (retry, timeout, circuit breaker, filter, hedge, tracing, logging) |
+| **[http-tower-hs](http-tower-hs/)** | HTTP client middleware built on `tower-hs` (headers, redirects, tracing, validation, logging) |
+| **[servant-tower-hs](servant-tower-hs/)** | Servant `ClientMiddleware` adapter + servant-specific middleware (headers, request IDs, validation, tracing, logging) |
 
 ## Quick start
+
+### HTTP client (http-tower-hs)
+
+Generic tower-hs middleware and HTTP-specific middleware compose with the `|>` operator:
 
 ```haskell
 import Network.HTTP.Tower
@@ -15,12 +25,18 @@ import qualified Network.HTTP.Client as HTTP
 main :: IO ()
 main = do
   client <- newClient
-  let configured = client
+  breaker <- newCircuitBreaker
+  let config = CircuitBreakerConfig { cbFailureThreshold = 5, cbCooldownPeriod = 30 }
+      configured = client
+        -- Generic tower-hs middleware
+        |> withRetry (exponentialBackoff 3 0.5 2.0)
+        |> withTimeout 5000
+        |> withCircuitBreaker config breaker
+        -- HTTP-specific middleware
         |> withBearerAuth "my-api-token"
         |> withRequestId
-        |> withRetry (constantBackoff 3 1.0)
-        |> withTimeout 5000
         |> withValidateStatus (\c -> c >= 200 && c < 300)
+        |> withLogging (Data.Text.IO.putStrLn)
         |> withTracing
 
   req <- HTTP.parseRequest "https://api.example.com/v1/users"
@@ -28,6 +44,63 @@ main = do
   case result of
     Left err   -> putStrLn $ "Failed: " <> show err
     Right resp -> putStrLn $ "OK: " <> show (HTTP.responseStatus resp)
+```
+
+### Servant client (servant-tower-hs)
+
+Generic tower-hs middleware and servant-specific middleware compose in a single stack:
+
+```haskell
+import Servant.Tower.Adapter (withTowerMiddleware)
+import Tower.Middleware.Retry (withRetry, exponentialBackoff)
+import Tower.Middleware.Timeout (withTimeout)
+import Tower.Middleware.CircuitBreaker
+import Servant.Tower.Middleware.SetHeader (withBearerAuth, withUserAgent)
+import Servant.Tower.Middleware.Validate (withValidateStatus)
+import Servant.Tower.Middleware.Logging (withLogging)
+import Servant.Tower.Middleware.Tracing (withTracing)
+
+breaker <- newCircuitBreaker
+let config = CircuitBreakerConfig { cbFailureThreshold = 5, cbCooldownPeriod = 30 }
+    env = withTowerMiddleware
+      ( -- Generic tower-hs middleware
+        withRetry (exponentialBackoff 3 0.5 2.0)
+      . withTimeout 5000
+      . withCircuitBreaker config breaker
+        -- Servant-specific middleware
+      . withBearerAuth "my-api-token"
+      . withUserAgent "my-app/1.0"
+      . withValidateStatus (\c -> c >= 200 && c < 300)
+      . withLogging (Data.Text.IO.putStrLn)
+      . withTracing
+      ) (mkClientEnv manager baseUrl)
+result <- runClientM (getUsers <|> getHealth) env
+```
+
+### Generic service (tower-hs)
+
+`tower-hs` is not tied to HTTP -- it works with any `req -> IO (Either ServiceError res)` service. Wrap a database client, a gRPC stub, a message queue, or anything else:
+
+```haskell
+import Tower
+
+-- Wrap a database query as a Service
+let dbService :: Service SQL.Query [SQL.Row]
+    dbService = Service $ \query -> do
+      result <- try $ SQL.query conn query
+      pure $ case result of
+        Left  err  -> Left (TransportError err)
+        Right rows -> Right rows
+
+-- Add resilience with the same middleware you'd use for HTTP
+breaker <- newCircuitBreaker
+let config = CircuitBreakerConfig { cbFailureThreshold = 5, cbCooldownPeriod = 30 }
+    robust = withRetry (exponentialBackoff 3 0.5 2.0)
+           . withTimeout 5000
+           . withCircuitBreaker config breaker
+           $ dbService
+
+result <- runService robust "SELECT * FROM users"
 ```
 
 ## Core concepts
@@ -80,149 +153,56 @@ For full control, use `newClientWith` with custom `ManagerSettings`.
 
 ## Middleware
 
-### Retry
+### Generic (tower-hs)
 
-Retries failed requests with configurable backoff:
+| Middleware | Description |
+|-----------|-------------|
+| `withRetry` | Retry with constant or exponential backoff |
+| `withTimeout` | Fail after N milliseconds |
+| `withCircuitBreaker` | Three-state circuit breaker (Closed/Open/HalfOpen) via STM |
+| `withFilter` | Predicate-based request filtering |
+| `withNoRetryOn` | Prevent retry on matching responses |
+| `withHedge` | Speculative retry via async race |
+| `withLogging` | Generic timed logging with user-provided formatter |
+| `withTracingConfig` | OpenTelemetry tracing with configurable span name/attributes |
+| `withTracingGlobal` | OTel tracing using global TracerProvider |
+| `withValidate` | Generic response validation with user-provided check |
+| `withMapRequest` | Transform request with IO before forwarding |
+| `withMapRequestPure` | Transform request with pure function before forwarding |
+| `withMock` | Replace service with mock (testing) |
+| `withRecorder` | Record requests (testing) |
 
-```haskell
--- Constant: 3 retries, 1 second between each
-client |> withRetry (constantBackoff 3 1.0)
+### HTTP-specific (http-tower-hs)
 
--- Exponential: 5 retries, starting at 500ms, doubling each time
-client |> withRetry (exponentialBackoff 5 0.5 2.0)
-```
+| Middleware | Description |
+|-----------|-------------|
+| `withLogging` | Log method, host, status, duration |
+| `withBearerAuth` | Add Authorization: Bearer header |
+| `withHeader` / `withHeaders` | Add custom headers |
+| `withUserAgent` | Set User-Agent header |
+| `withRequestId` | Add UUID v4 X-Request-ID header |
+| `withFollowRedirects` | Follow 3xx responses (301-308) |
+| `withValidateStatus` | Reject unexpected status codes |
+| `withValidateContentType` | Require specific Content-Type |
+| `withValidateHeader` | Require specific response header |
+| `withTracing` | OpenTelemetry spans with HTTP semantic conventions |
+| `withMockMap` | Route-based mock responses (testing) |
 
-### Timeout
+### Servant-specific (servant-tower-hs)
 
-Fails with `TimeoutError` if the request exceeds the given milliseconds:
+| Middleware | Description |
+|-----------|-------------|
+| `withBearerAuth` | Add Authorization: Bearer header |
+| `withHeader` / `withHeaders` | Add custom headers |
+| `withUserAgent` | Set User-Agent header |
+| `withRequestId` | Add UUID v4 X-Request-ID header |
+| `withValidateStatus` | Reject unexpected status codes |
+| `withValidateContentType` | Require specific Content-Type |
+| `withValidateHeader` | Require specific response header |
+| `withTracing` | OpenTelemetry spans with HTTP semantic conventions |
+| `withLogging` | Log method, status, duration |
 
-```haskell
-client |> withTimeout 5000
-```
-
-### Logging
-
-Logs method, host, status, and duration:
-
-```haskell
-client |> withLogging (\msg -> Data.Text.IO.putStrLn msg)
-```
-
-### Circuit Breaker
-
-Three-state circuit breaker (Closed → Open → HalfOpen) using STM:
-
-```haskell
-breaker <- newCircuitBreaker
-let configured = client
-      |> withCircuitBreaker (CircuitBreakerConfig 5 30) breaker
-```
-
-Trips open after 5 consecutive failures, rejects immediately for 30 seconds, then probes recovery with one request.
-
-### OpenTelemetry Tracing
-
-Wraps each request in an OTel span with [stable HTTP semantic conventions](https://opentelemetry.io/docs/specs/semconv/http/http-spans/):
-
-```haskell
--- Uses global TracerProvider (no-ops if unconfigured)
-client |> withTracing
-
--- Or with a specific tracer
-client |> withTracingTracer myTracer
-```
-
-Attributes: `http.request.method`, `server.address`, `server.port`, `url.full`, `http.response.status_code`, `error.type`.
-
-### Set Header
-
-Add headers to every request:
-
-```haskell
-client |> withBearerAuth "my-token"
-client |> withUserAgent "my-app/1.0"
-client |> withHeader "X-Custom" "value"
-client |> withHeaders [("X-A", "1"), ("X-B", "2")]
-```
-
-### Request ID
-
-Generate a UUID v4 correlation ID per request:
-
-```haskell
-client |> withRequestId                        -- X-Request-ID header
-client |> withRequestIdHeader "X-Correlation-ID"  -- custom header name
-```
-
-### Follow Redirects
-
-Automatically follow 3xx responses (301, 302, 303, 307, 308):
-
-```haskell
-client |> withFollowRedirects 5  -- max 5 hops
-```
-
-Respects 303 → GET method change per HTTP spec.
-
-### Filter
-
-Predicate-based request control:
-
-```haskell
--- Only allow GET requests
-client |> withFilter (\req -> HTTP.method req == "GET")
-
--- Don't retry 4xx responses (place between retry and base service)
-client |> withNoRetryOn (\resp -> statusCode (responseStatus resp) < 500)
-```
-
-### Hedge
-
-Speculative retry — if the primary request is slow, fire a second and return whichever finishes first:
-
-```haskell
-client |> withHedge 200  -- hedge after 200ms
-```
-
-Only use for idempotent requests (GET, etc.).
-
-### Response Validation
-
-Reject unexpected responses:
-
-```haskell
--- Only accept 2xx
-client |> withValidateStatus (\c -> c >= 200 && c < 300)
-
--- Require JSON
-client |> withValidateContentType "application/json"
-
--- Require a specific header
-client |> withValidateHeader "X-Request-ID"
-```
-
-### Test Doubles
-
-Testing utilities — mock services, record requests:
-
-```haskell
--- Replace the service entirely
-let testClient = client |> withMock (\req -> pure (Right fakeResponse))
-
--- Route-based mocks
-let mocks = Map.fromList
-      [ ("api.example.com/v1/users", Right usersResponse)
-      , ("api.example.com/v1/health", Right healthResponse)
-      ]
-let testClient = client |> withMockMap mocks
-
--- Record requests for assertions
-recorder <- newIORef []
-let testClient = client |> withRecorder recorder
-_ <- runRequest testClient someRequest
-recorded <- readIORef recorder
-length recorded `shouldBe` 1
-```
+All generic tower-hs middleware (retry, timeout, circuit breaker, etc.) also works with servant via `withTowerMiddleware`.
 
 ## Error handling
 
@@ -230,7 +210,7 @@ All errors are returned as `Either ServiceError Response` — no exceptions esca
 
 ```haskell
 data ServiceError
-  = HttpError SomeException
+  = TransportError SomeException
   | TimeoutError
   | RetryExhausted Int ServiceError
   | CircuitBreakerOpen
@@ -240,9 +220,11 @@ data ServiceError
 ## Building
 
 ```bash
-stack build
-stack test
-hlint src/ test/
+stack build         # all packages
+stack test          # all tests
+stack build tower-hs            # just the core
+stack test http-tower-hs        # just HTTP tests
+stack test servant-tower-hs     # just servant adapter tests
 ```
 
 ## License
