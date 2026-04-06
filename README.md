@@ -6,11 +6,11 @@ Composable service middleware for Haskell, inspired by Rust's [Tower](https://do
 
 ## Packages
 
-| Package | Description |
-|---------|-------------|
-| **[tower-hs](tower-hs/)** | Generic `Service`/`Middleware` abstractions with protocol-agnostic middleware (retry, timeout, circuit breaker, filter, hedge, tracing, logging) |
-| **[http-tower-hs](http-tower-hs/)** | HTTP client middleware built on `tower-hs` (headers, redirects, tracing, validation, logging) |
-| **[servant-tower-hs](servant-tower-hs/)** | Servant `ClientMiddleware` adapter + servant-specific middleware (headers, request IDs, validation, tracing, logging) |
+| Package | Description | Hackage |
+|---------|-------------|---------|
+| **[tower-hs](tower-hs/)** | Generic `Service`/`Middleware` abstractions with protocol-agnostic middleware (retry, timeout, circuit breaker, filter, hedge, tracing, logging) | [![Hackage](https://img.shields.io/hackage/v/tower-hs.svg)](https://hackage.haskell.org/package/tower-hs) |
+| **[http-tower-hs](http-tower-hs/)** | HTTP client middleware built on `tower-hs` (headers, redirects, tracing, validation, logging) | [![Hackage](https://img.shields.io/hackage/v/http-tower-hs.svg)](https://hackage.haskell.org/package/http-tower-hs) |
+| **[servant-tower-hs](servant-tower-hs/)** | Servant `ClientMiddleware` adapter + servant-specific middleware (headers, request IDs, validation, tracing, logging) | [![Hackage](https://img.shields.io/hackage/v/servant-tower-hs.svg)](https://hackage.haskell.org/package/servant-tower-hs) |
 
 ## Quick start
 
