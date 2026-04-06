@@ -1,8 +1,12 @@
 name: example-http-client
 version: 0.0.0
 synopsis: Example HTTP client using tower-hs middleware
+description: Example showing how to use http-tower-hs middleware with an HTTP client.
 license: MIT
-license-file: ../../LICENSE
+license-file: LICENSE
+category: Example
+author: Jarl André Hübenthal
+maintainer: jarlah@protonmail.com
 
 dependencies:
   - base >= 4.14 && < 5
