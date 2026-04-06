@@ -1,0 +1,21 @@
+name: example-servant-client
+version: 0.0.0
+synopsis: Example Servant client using tower-hs middleware
+license: MIT
+license-file: ../../LICENSE
+
+dependencies:
+  - base >= 4.14 && < 5
+
+executables:
+  example-servant-client:
+    main: Main.hs
+    source-dirs: .
+    dependencies:
+      - servant-tower-hs
+      - tower-hs
+      - aeson >= 2.1 && < 2.3
+      - http-client >= 0.7 && < 0.8
+      - servant >= 0.20 && < 0.21
+      - servant-client >= 0.20 && < 0.21
+      - text >= 2.0 && < 2.2

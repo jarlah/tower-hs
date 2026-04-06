@@ -1,6 +1,11 @@
 snapshot: lts-23.18
 packages:
-  - .
+  - tower-hs
+  - http-tower-hs
+  - servant-tower-hs
+  - examples/http-client
+  - examples/servant-client
+  - examples/generic-redis
 extra-deps:
   - hs-opentelemetry-api-0.3.1.0
   - hs-opentelemetry-sdk-0.1.0.1

@@ -22,11 +22,16 @@ jobs:
           cabal-version: 'latest'
           cabal-update: false
 
-      - name: Generate cabal file
+      - name: Generate cabal files
         run: |
           curl -sSL https://github.com/sol/hpack/releases/download/0.38.1/hpack_linux.gz | gunzip > /usr/local/bin/hpack
           chmod +x /usr/local/bin/hpack
-          hpack
+          hpack tower-hs/
+          hpack http-tower-hs/
+          hpack servant-tower-hs/
+          hpack examples/http-client/
+          hpack examples/servant-client/
+          hpack examples/generic-redis/
 
       - name: Update Hackage index
         run: cabal update
@@ -38,17 +43,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.setup.outputs.cabal-store }}
-          key: cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('http-tower-hs.cabal', 'cabal.project') }}
+          key: cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('tower-hs/package.yaml', 'http-tower-hs/package.yaml', 'servant-tower-hs/package.yaml', 'cabal.project') }}
           restore-keys: cabal-${{ runner.os }}-${{ matrix.ghc }}-
 
       - name: Build dependencies
-        run: cabal build --only-dependencies --project-file=cabal.project
+        run: cabal build all --only-dependencies --project-file=cabal.project
 
       - name: Build
-        run: cabal build --project-file=cabal.project
+        run: cabal build all --project-file=cabal.project
 
       - name: Test
-        run: cabal test --project-file=cabal.project --test-show-details=direct
+        run: cabal test all --project-file=cabal.project --test-show-details=direct
 
   stack-build:
     runs-on: ubuntu-latest
@@ -69,7 +74,10 @@ jobs:
           path: |
             ${{ steps.setup.outputs.stack-root }}
             .stack-work
-          key: stack-${{ runner.os }}-${{ hashFiles('stack.yaml', 'package.yaml') }}
+            tower-hs/.stack-work
+            http-tower-hs/.stack-work
+            servant-tower-hs/.stack-work
+          key: stack-${{ runner.os }}-${{ hashFiles('stack.yaml', 'tower-hs/package.yaml', 'http-tower-hs/package.yaml', 'servant-tower-hs/package.yaml') }}
           restore-keys: stack-${{ runner.os }}-
 
       - name: Build
@@ -87,14 +95,38 @@ jobs:
       - name: Run HLint
         uses: haskell-actions/hlint-setup@v2
 
-      - name: HLint src/
+      - name: HLint tower-hs/src/
         uses: haskell-actions/hlint-run@v2
         with:
-          path: src/
+          path: tower-hs/src/
           fail-on: warning
 
-      - name: HLint test/
+      - name: HLint tower-hs/test/
         uses: haskell-actions/hlint-run@v2
         with:
-          path: test/
+          path: tower-hs/test/
+          fail-on: warning
+
+      - name: HLint http-tower-hs/src/
+        uses: haskell-actions/hlint-run@v2
+        with:
+          path: http-tower-hs/src/
+          fail-on: warning
+
+      - name: HLint http-tower-hs/test/
+        uses: haskell-actions/hlint-run@v2
+        with:
+          path: http-tower-hs/test/
+          fail-on: warning
+
+      - name: HLint servant-tower-hs/src/
+        uses: haskell-actions/hlint-run@v2
+        with:
+          path: servant-tower-hs/src/
+          fail-on: warning
+
+      - name: HLint servant-tower-hs/test/
+        uses: haskell-actions/hlint-run@v2
+        with:
+          path: servant-tower-hs/test/
           fail-on: warning

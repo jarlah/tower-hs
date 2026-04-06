@@ -1,0 +1,17 @@
+name: example-http-client
+version: 0.0.0
+synopsis: Example HTTP client using tower-hs middleware
+license: MIT
+license-file: ../../LICENSE
+
+dependencies:
+  - base >= 4.14 && < 5
+
+executables:
+  example-http-client:
+    main: Main.hs
+    source-dirs: .
+    dependencies:
+      - http-tower-hs
+      - http-client >= 0.7 && < 0.8
+      - text >= 2.0 && < 2.2
