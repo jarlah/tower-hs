@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0.0 — 2026-04-07
+
+- Re-export `contramapService` and `dimapService` from `tower-hs`
+- Adopt `(&)` from `Data.Function` as idiomatic style in docs, tests, and examples
+- `(|>)` operator remains available for newcomers
+- Requires `tower-hs >= 0.2.0.0`
+
 ## 0.2.0.0 — 2026-04-06
 
 ### Breaking Changes
