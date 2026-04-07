@@ -1,5 +1,5 @@
 name: tower-hs
-version: 0.1.0.0
+version: 0.2.0.0
 synopsis: Composable service middleware for Haskell, inspired by Rust's Tower
 description: |
   tower-hs provides a composable middleware abstraction for any service type.
