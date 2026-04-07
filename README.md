@@ -60,6 +60,7 @@ main = do
 Generic tower-hs middleware and servant-specific middleware compose in a single stack:
 
 ```haskell
+import Data.Function ((&))
 import Servant.Tower.Adapter (withTowerMiddleware)
 import Tower.Middleware.Retry (withRetry, exponentialBackoff)
 import Tower.Middleware.Timeout (withTimeout)
@@ -71,7 +72,7 @@ import Servant.Tower.Middleware.Tracing (withTracing)
 
 breaker <- newCircuitBreaker
 let config = CircuitBreakerConfig { cbFailureThreshold = 5, cbCooldownPeriod = 30 }
-    env = withTowerMiddleware
+    env = mkClientEnv manager baseUrl & withTowerMiddleware
       ( -- Generic tower-hs middleware
         withRetry (exponentialBackoff 3 0.5 2.0)
       . withTimeout 5000
@@ -82,7 +83,7 @@ let config = CircuitBreakerConfig { cbFailureThreshold = 5, cbCooldownPeriod = 3
       . withValidateStatus (\c -> c >= 200 && c < 300)
       . withLogging (Data.Text.IO.putStrLn)
       . withTracing
-      ) (mkClientEnv manager baseUrl)
+      )
 result <- runClientM (getUsers <|> getHealth) env
 ```
 

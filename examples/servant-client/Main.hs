@@ -12,6 +12,7 @@
 module Main where
 
 import Data.Aeson (Value)
+import Data.Function ((&))
 import Data.Proxy (Proxy(..))
 import qualified Data.Text.IO as T
 import Network.HTTP.Client (newManager, defaultManagerSettings)
@@ -45,7 +46,7 @@ main = do
         { cbFailureThreshold = 5
         , cbCooldownPeriod   = 30
         }
-      env = withTowerMiddleware
+      env = mkClientEnv manager baseUrl & withTowerMiddleware
         ( -- Generic tower-hs middleware
           withRetry (exponentialBackoff 3 0.5 2.0)
         . withTimeout 10000
@@ -55,7 +56,7 @@ main = do
         . STS.withBearerAuth "example-token"
         . STV.withValidateStatus (\c -> c >= 200 && c < 300)
         . STL.withLogging T.putStrLn
-        ) (mkClientEnv manager baseUrl)
+        )
 
   -- Make a request
   result <- runClientM getEndpoint env

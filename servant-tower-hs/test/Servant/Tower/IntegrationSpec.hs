@@ -8,6 +8,7 @@ module Servant.Tower.IntegrationSpec (spec) where
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM (newTVarIO, readTVar, TVar, modifyTVar', atomically)
 import Control.Monad.IO.Class (liftIO)
+import Data.Function ((&))
 import Data.IORef
 import Data.Proxy (Proxy(..))
 import Data.Text (Text, isInfixOf)
@@ -96,7 +97,7 @@ runWithMiddleware :: Int -> ClientM a -> (ClientEnv -> ClientEnv) -> IO (Either 
 runWithMiddleware port action applyMw = do
   manager <- newManager defaultManagerSettings
   baseUrl' <- parseBaseUrl $ "http://localhost:" ++ show port
-  let env = applyMw (mkClientEnv manager baseUrl')
+  let env = mkClientEnv manager baseUrl' & applyMw
   runClientM action env
 
 runPlain :: Int -> ClientM a -> IO (Either ClientError a)
