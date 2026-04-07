@@ -6,6 +6,7 @@ packages:
   - examples/http-client
   - examples/servant-client
   - examples/generic-redis
+  - examples/arrow-pipeline
 extra-deps:
   - hs-opentelemetry-api-0.3.1.0
   - hs-opentelemetry-sdk-0.1.0.1
