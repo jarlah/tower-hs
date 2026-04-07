@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1.1 — 2026-04-07
+
+- Bump `tower-hs` dependency to `>= 0.3.0.0 && < 0.4`
+
 ## 0.1.1.0 — 2026-04-07
 
 - Adopt `(&)` from `Data.Function` as idiomatic style in tests and examples

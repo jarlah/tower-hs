@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0.0 — 2026-04-07
+
+- Add `Category` instance for `Service` — compose services sequentially with `>>>`, errors short-circuit automatically
+- Add `Arrow` instance for `Service` — lift pure functions with `arr`, thread data with `first`/`second`
+- Add `ArrowChoice` instance for `Service` — route with `|||` and `left`/`right`
+
 ## 0.2.0.0 — 2026-04-07
 
 - Add `Functor` instance for `Service req` — use `fmap` to transform successful responses

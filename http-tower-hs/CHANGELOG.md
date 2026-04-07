@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0.1 — 2026-04-07
+
+- Bump `tower-hs` dependency to `>= 0.3.0.0 && < 0.4`
+
 ## 0.3.0.0 — 2026-04-07
 
 - Re-export `contramapService` and `dimapService` from `tower-hs`
