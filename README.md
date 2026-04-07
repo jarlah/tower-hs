@@ -143,53 +143,17 @@ let userSvc' = dimapService toHttpRequest parseUser httpSvc
 
 #### Arrow composition
 
-`Service` is also a `Category`, `Arrow`, and `ArrowChoice`. The built-in middleware
-handles wrapping concerns (retry, timeout, circuit breaker) via `(&)`, but your own
-domain logic — guards, routing, type conversions — can use arrow composition. The two
-styles combine naturally:
+`Service` is a `Category`, `Arrow`, and `ArrowChoice`, so you can chain services
+with `>>>`, lift pure functions with `arr`, and route with `|||`. Errors
+short-circuit automatically at each `>>>` step.
 
 ```haskell
-import Control.Category ((>>>))
-import Control.Arrow ((|||))
-import Data.Function ((&))
-import Tower
-
--- Guards: effectful checks that pass the request through or fail.
--- Each is a Service req req, composed with >>> (short-circuits on first error).
-let authenticate :: Service Request Request
-    authenticate = Service $ \req -> case lookupToken req of
-      Nothing -> pure (Left (CustomError "unauthorized"))
-      Just _  -> pure (Right req)
-
-    rateLimit :: Service Request Request
-    rateLimit = Service $ \req -> do
-      allowed <- checkRate (clientIp req)
-      pure $ if allowed then Right req else Left (CustomError "rate limited")
-
--- Routing: classify a request and dispatch to different handlers.
-let classify :: Service Request (Either AdminReq UserReq)
-    classify = arr $ \req ->
-      if isAdmin req then Left (toAdminReq req) else Right (toUserReq req)
-
-    handleAdmin :: Service AdminReq Response
-    handleUser  :: Service UserReq  Response
-
--- Handler with built-in middleware: wrapping concerns via (&)
-let resilientAdmin = handleAdmin
-      & withRetry (exponentialBackoff 3 0.5 2.0)
-      & withTimeout 5000
-      & withCircuitBreaker config breaker
-
--- Full pipeline: guards >>> routing >>> handlers
 let pipeline :: Service Request Response
     pipeline = authenticate >>> rateLimit >>> classify >>> (resilientAdmin ||| handleUser)
-
-result <- runService pipeline incomingRequest
 ```
 
-The middleware stack becomes just one node in a larger arrow pipeline. Guards compose
-with `>>>`, routing uses `ArrowChoice` (`|||`), and wrapping middleware uses `(&)` —
-each in their natural style.
+See [`examples/arrow-pipeline/`](examples/arrow-pipeline/) for a full working example
+with sequential composition, data threading via `second`, and `ArrowChoice` routing.
 
 ### Middleware
 
