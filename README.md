@@ -262,6 +262,12 @@ data ServiceError
   | CustomError Text
 ```
 
+## Showcase
+
+| Project | Description |
+|---------|-------------|
+| **[Sentinel](https://github.com/jarlah/sentinel)** | Programmable infrastructure health monitor distributed as a single Haskell binary. Monitors HTTP endpoints and databases (PostgreSQL, MySQL, Redis) with scheduled probes, circuit breakers, retries, and alerting (Slack, email, Prometheus). Built on `tower-hs` and `http-tower-hs`. |
+
 ## Building
 
 ```bash
