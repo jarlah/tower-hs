@@ -82,19 +82,7 @@ getCircuitBreakerState (CircuitBreaker var) = biState <$> readTVarIO var
 withCircuitBreaker :: CircuitBreakerConfig -> CircuitBreaker -> Middleware req res
 withCircuitBreaker config (CircuitBreaker var) inner = Service $ \req -> do
   now <- getCurrentTime
-  decision <- atomically $ do
-    internals <- readTVar var
-    case biState internals of
-      Open ->
-        case biLastFailureAt internals of
-          Just lastFail
-            | diffUTCTime now lastFail >= cbCooldownPeriod config -> do
-                writeTVar var internals { biState = HalfOpen }
-                pure AllowRequest
-          _ -> pure RejectRequest
-      HalfOpen -> pure AllowRequest
-      Closed   -> pure AllowRequest
-
+  decision <- atomically $ resolveDecision config var now
   case decision of
     RejectRequest -> pure (Left CircuitBreakerOpen)
     AllowRequest  -> do
@@ -113,6 +101,20 @@ withCircuitBreaker config (CircuitBreaker var) inner = Service $ \req -> do
                   then writeBreaker var Open newCount (Just now')
                   else writeBreaker var Closed newCount (Just now')
       pure result
+
+resolveDecision :: CircuitBreakerConfig -> TVar BreakerInternals -> UTCTime -> STM Decision
+resolveDecision config var now = do
+  internals <- readTVar var
+  case biState internals of
+    Open ->
+      case biLastFailureAt internals of
+        Just lastFail
+          | diffUTCTime now lastFail >= cbCooldownPeriod config -> do
+              writeTVar var internals { biState = HalfOpen }
+              pure AllowRequest
+        _ -> pure RejectRequest
+    HalfOpen -> pure AllowRequest
+    Closed   -> pure AllowRequest
 
 writeBreaker :: TVar BreakerInternals -> CircuitBreakerState -> Int -> Maybe UTCTime -> STM ()                                                      
 writeBreaker var st count mTime = writeTVar var $ BreakerInternals                                                                                  
